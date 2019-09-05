@@ -1,0 +1,37 @@
+Name,Subset,Parent Gate
+TLC,TLC,Total WBC
+B1,B1,B cell
+B_immature,B immature,B cell
+B_memory,B memory,B cell
+B_naive,B naive,B cell
+Plasmablast,Plasmablast,B cell
+Plasmablast_IgA,Plasmablast IgA+,B cell
+CD4_naive,CD4 naive,CD4 T
+CD4_memory,CD4 memory,CD4 T
+CD4_EMRA,CD4 EMRA,CD4 T
+Treg,Treg,CD4 T
+nTreg,nTreg,CD4 T
+iTreg,iTreg,CD4 T
+CD39Treg,CD39Treg,CD4 T
+CD39iTreg,CD39iTreg,CD4 T
+CD39nTreg,CD39nTreg,CD4 T
+CD8_naive,CD8 naive,CD8 T
+CD8_memory,CD8 memory,CD8 T
+CD8_EMRA,CD8 EMRA,CD8 T
+mDC,mDC,Dendritic cell
+pDC,pDC,Dendritic cell
+Monocyte_Classical,Monocyte Classical,Monocyte
+Monocyte_Inflammatory,Monocyte Inflammatory,Monocyte
+Monocyte_Patrolling,Monocyte Patrolling,Monocyte
+CD4,CD4,T cell
+CD8,CD8,T cell
+Gamma_delta_T,Gamma delta T,T cell
+NKT,NKT,T cell
+iNKT,iNKT,T cell
+B_cell,B cell,Total PBMC
+T_cell,T cell,Total PBMC
+Monocyte,Monocyte,Total PBMC
+DC,Dendritic cell,Total PBMC
+NK_cell,NK cell,Total PBMC
+Neutrophil,Neutrophil,Total WBC
+Lymphomonocyte,Lymphomonocyte,Total WBC
