@@ -194,121 +194,190 @@ ggplot(SBFm, aes(Month, value))+
   theme_bw()
 dev.off()
 
+
+
 ########### Variance calculation ###########
 rm(list = ls())
-### technical CV calculation
 SBF <- read.csv("input/SB_frequency.csv")
-tech <- read.csv("input/technical_control_CV.csv")
-
 SBF <- SBF[, !names(SBF) %in% c("TLC","Neutrophil", "Lymphomonocyte")] 
-tech <- dplyr::filter(tech, !Name %in% c("TLC","Neutrophil", "Lymphomonocyte") )
 
+# between-individual variation
 BETW = SBF
-
-#BETW = dplyr::filter(SBF, Bleed == "a")
+BETW = dplyr::filter(SBF, Bleed == "a")
 BETW = BETW[,-c(1:3)]
-BETWCV = data.frame(apply(BETW, 2, sd, na.rm = T)/apply(BETW, 2, mean, na.rm=T))
+BETWCV = data.frame(apply(BETW, 2, function(x){sd(x, na.rm = T)/mean(x, na.rm = T)}))
 BETWCV$Name = rownames(BETWCV)
 rownames(BETWCV) = 1:nrow(BETWCV)
 names(BETWCV)[1] = "CV_betw"
 BETWCV = BETWCV[, c("Name", "CV_betw")]
-tech$Name = as.character(tech$Name)
-identical(sort(BETWCV$Name), sort(tech$Name))
-tech$CV_tech = apply(tech[,-1], 1, mean, na.rm= T)
+BETWCV$Name = gsub("_", " ",BETWCV$Name)
+BETWCV = BETWCV[order(BETWCV$CV_betw),]
+BETWCV$Name = factor(BETWCV$Name, levels = BETWCV$Name)
 
-CV = merge(tech, BETWCV)
-CV$CV_betw_corrected = CV$CV_betw - CV$CV_tech
-
+# within-individual variation
 INTRA = SBF
-INTRA = melt(SBF)
-INTRA = dcast(INTRA, ID+variable~Bleed, value.var = "value")
-str(INTRA)
-INTRA$CV = apply(INTRA[,c(3:6)], 1, sd, na.rm = T) / apply(INTRA[,-c(1:2)], 1, mean, na.rm = T)
+INTRA$Parameter = NULL
+INTRA = aggregate(INTRA[,-c(1:2)], by=list(INTRA$ID), function(x){sd(x, na.rm = T)/mean(x, na.rm = T)})
+colnames(INTRA)[1] = "ID"
+INTRA = data.frame(apply(INTRA[,-1], 2, mean, na.rm=T))
+INTRA$Name = rownames(INTRA)
+rownames(INTRA) = 1:nrow(INTRA)
+colnames(INTRA) = c("CV_INTRA", "Name")
+INTRA$Name = gsub("_", " ", INTRA$Name)
+INTRA = INTRA[order(INTRA$CV_INTRA),]
+INTRA$Name = factor(INTRA$Name, levels = BETWCV$Name)
 
-TECHCV = CV[, c("Name", "CV_tech")]
-names(TECHCV) = c("variable", "CV_tech")
-INTRA = merge(INTRA, TECHCV)
-INTRA$CV_intra_corrected = INTRA$CV - INTRA$CV_tech
-INTRACV = data.frame(aggregate(INTRA$CV_intra_corrected, by = list(INTRA$variable), FUN = mean, na.rm = T))
-names(INTRACV) = c("Name", "CV_intra_corrected")
-CV = merge(CV, INTRACV)
+CV = merge(INTRA, BETWCV)
 
-CV[which(CV$CV_betw_corrected < 0), "CV_betw_corrected"] = rep(0) # because CVs can't be negative
+# technical variation
+tech = read_excel("input/BB40_raw_values.xlsx")
+tech$Name = gsub("_", " ", tech$Name)
+sort(CV$Name)
+sort(tech$Name)
+tech$Name = factor(tech$Name, levels = CV$Name)
+tech$CV_tech = apply(tech[,-1], 1, function(x){sd(x, na.rm = T)/mean(x, na.rm = T)})
+tech = tech[, c("Name", "CV_tech")]
+identical(sort(as.character(CV$Name)), sort(as.character(tech$Name))) # subset names are identical
 
-CV[which(CV$CV_intra_corrected < 0), "CV_intra_corrected"] = rep(0)
+CV = merge(CV, tech)
 
-CV$BB40 = NULL
-CV$BB58 = NULL
-CV$BB43 = NULL
-CV[,-1] = round(CV[,-1], 4)
+CV$Name = factor(CV$Name, levels = BETWCV$Name)
+
+p1 = ggplot(CV, aes(Name, CV_betw))+
+  geom_bar(stat = "identity", colour = "black", fill = "#CC79A7")+
+  theme_bw()+
+  labs(x = NULL,
+       y = "Between-individual variation \n(CV)")+
+  theme(axis.text.x = element_text(angle = 90, size = 9, vjust = 0.5, hjust = 1))
+
+p2 = ggplot(CV, aes(Name, CV_INTRA))+
+  geom_bar(stat = "identity", colour = "black", fill = "#CC79A7")+
+  theme_bw()+
+  labs(x = NULL,
+       y = "Within-individual variation \n(CV)")+
+  theme(axis.text.x = element_text(angle = 90, size = 9, vjust = 0.5, hjust = 1))
+
+library(cowplot)
+pdf("output/Fig1.pdf", width = 8, height = 8)
+plot_grid(p1, p2, nrow = 2, labels = "AUTO")
+dev.off()
+
 write.csv(CV, "output/TableS4.csv", row.names = F)
 
-############# Plot of Figure 1 ############
-toplot = CV
-toplot$Name = gsub("_", " ", toplot$Name)
-toplot = toplot[order(toplot$CV_betw_corrected),]
-str(toplot$Name)
-toplot$Name = factor(toplot$Name, levels = toplot$Name)
+#
 
-p1 = ggplot(toplot, aes(Name, CV_betw_corrected))+
-  geom_bar(stat="identity", fill = "pink", colour = "black")+
-  theme_bw()+
-  labs(x = NULL,
-       y = "Between-individual CV \n(corrected for technical CV)")+
-  theme(axis.text.x = element_text(angle = 90, size = 9, vjust = 0.5, hjust = 1))
-p1
-#dev.off()
-toplot = CV
-toplot$Name = gsub("_", " ", toplot$Name)
-toplot = toplot[order(toplot$CV_intra_corrected),]
-str(toplot$Name)
-toplot$Name = factor(toplot$Name, levels = toplot$Name)
+fit1 = lm(data = CV, CV_INTRA~CV_betw)
+summary(fit1)
+fit2 = lm(data = CV, CV_INTRA~CV_betw+CV_tech)
+summary(fit2)
 
-p2 = ggplot(toplot, aes(Name, CV_intra_corrected))+
-  geom_bar(stat="identity", fill = "pink", colour = "black")+
-  theme_bw()+
-  labs(x = NULL,
-       y = "Within-individual CV \n(corrected for technical CV)")+
-  theme(axis.text.x = element_text(angle = 90, size = 9, vjust = 0.5, hjust = 1))
-p2  
-
-upper = plot_grid(p1, p2, nrow = 1, labels = "AUTO")
-
-plot(CV$CV_betw_corrected, CV$CV_tech)
-cor.test(CV$CV_betw_corrected, CV$CV_tech)
-
-plot(CV$CV_intra_corrected, CV$CV_tech)
-cor.test(CV$CV_intra_corrected, CV$CV_tech)
-
-p1=ggplot(CV, aes(CV_tech, CV_betw_corrected))+
-  geom_point()+
-  theme_bw()+
-  labs(x = "CV of technical controls",
-       y = "Between-individual CV \n(corrected)")+
-  annotate("text", 0.9, 0.8, label = "R = 0.22 \n p = 0.2")
-p1
-
-p2=ggplot(CV, aes(CV_tech, CV_intra_corrected))+
-  geom_point()+
-  theme_bw()+
-  labs(x = "CV of technical controls",
-       y = "Within-individual CV \n(corrected)")+
-  annotate("text", 0.9, 0.2, label = "R = -0.3 \n p = 0.09")
-p2
-
-cor.test(CV$CV_intra_corrected, CV$CV_betw_corrected)
-p3=ggplot(CV, aes(CV_betw_corrected, CV_intra_corrected))+
-  geom_point()+
-  theme_bw()+
-  labs(x = "Between-individual CV \n(corrected)",
-       y = "Within-individual CV \n(corrected)")+
-  annotate("text", 0.2, 0.2, label = "R = 0.7 \n p = 9.4e-06")
-p3
-
-lower = plot_grid(p1, p2, p3, nrow = 1, labels = c("C", "D", "E"))
-
-pdf("output/Fig1.pdf", width = 8.5, height = 7)
-plot_grid(upper, lower, nrow = 2, rel_heights = c(1.5,1))
+pdf("output/FigS3_fit.pdf")
+summary(fit1)
 dev.off()
+
+p1 = ggplot(CV, aes(CV_betw, CV_INTRA))+
+  geom_point(shape = 1, colour = "blue")+
+  geom_smooth(method = "lm", colour = "red", size = 0.5)+
+  annotate("text", 1.5, 0.2, label = "Adj R2 = 0.56 \nIntercept = 0.13 \nSlope = 0.254 \nP = 2.5e-06", colour = "red")+
+  labs(x = "Between-individual variation (CV)",
+       y = "Within-individual variation (CV)",
+       title = "After adjusting for technical variability in the model")+
+  theme_bw()
+
+ggplotRegression <- function (fit) {
+  require(ggplot2)
+  ggplot(fit$model, aes_string(x = names(fit$model)[2], y = names(fit$model)[1])) + 
+    geom_point() +
+    stat_smooth(method = "lm", col = "red") +
+    annotate("text", 1.5, 0.2, label = paste("Adj R2 = ",signif(summary(fit)$adj.r.squared, 5),
+                       "\nIntercept =",signif(fit$coef[[1]],5 ),
+                       " \nSlope =",signif(fit$coef[[2]], 5),
+                       " \nP =",signif(summary(fit)$coef[2,4], 5)))
+}
+
+ggplotRegression(fit2)+
+  theme_bw()
+ggplotRegression(fit2)
+
+summary(fit2)
+
+# check for mean-variance plot for technical replicates
+tech = read_excel("input/BB40_raw_values.xlsx")
+tech$MEAN_tech = apply(tech[,-1], 1, function(x){mean(x, na.rm = T)})
+tech$CV_tech = apply(tech[,-1], 1, function(x){sd(x, na.rm = T)/mean(x, na.rm = T)})
+tech$VAR_tech = apply(tech[,-1], 1, function(x){sd(x, na.rm = T)/mean(x, na.rm = T)})
+
+
+plot(tech$MEAN_tech, tech$VAR_tech, 
+     xlab = "Population size of each subset",
+     ylab = "Technical variability",
+     col = "blue",
+     xlim = c(0, 100), 
+     ylim = c(0, 1.5))
+text(40, 1.2, "rho = -0.2 \np = 0.23", col = "red")
+cor.test(tech$MEAN_tech, tech$VAR_tech, method = "spearman")
+
+p2 = ggplot(tech, aes(MEAN_tech, VAR_tech))+
+  geom_point(colour = "blue")+
+  geom_smooth(method = "lm", colour = "red")+
+  annotate("text", x= 40, y = 1.2, label = "rho = - 0.2 \nP = 0.23",
+           colour = "red")+
+  theme_bw()+
+  labs(x = "Population size of each subset",
+       y = "Variability in technical replicates",
+       title = "Degree of variability in technical replicates \nas a function of population size of immune subsets")
+
+
+
+pdf("output/FigS3.pdf", width = 5, height = 10)
+plot_grid(p1, p2, nrow = 2, labels = "AUTO")
+dev.off()
+
+
+
+# rough work : different way of plotting #
+toplot = melt(CV)
+toplot$variable = gsub("CV_INTRA", "Within-individual variation", toplot$variable)
+toplot$variable = gsub("CV_betw", "Between-individual variation", toplot$variable)
+toplot$variable = gsub("CV_tech", "Technical-replicate variation", toplot$variable)
+toplot$variable = factor(toplot$variable, 
+                         levels = c("Between-individual variation",
+                                    "Within-individual variation",
+                                    "Technical-replicate variation"))
+toplot = filter(toplot, variable != "Technical-replicate variation")
+
+ggplot(toplot, aes(Name, value))+
+  geom_bar(stat = "identity", colour = "black", fill = "#CC79A7")+
+  theme_bw()+
+  labs(x = NULL,
+       y = "Coefficient of variation (CV)")+
+  theme(axis.text.x = element_text(angle = 0, size = 9, vjust = 0.5, hjust = 1))+
+  facet_wrap(~variable, nrow = 1)+
+  coord_flip()
+
+
+
+
+
+# trial 
+# removing technical CV outliers
+CV = CV[which(CV$CV_tech < 1),]
+fit1 = lm(data = CV, CV_INTRA~CV_tech)
+summary(fit1)
+plot(CV$CV_INTRA, CV$CV_tech)
+
+fit2 = lm(data = CV, CV_INTRA~CV_betw+CV_tech)
+summary(fit2)
+plot(CV$CV_betw, CV$CV_INTRA)
+
+
+fit3 = lm(data = CV, CV_betw~CV_tech)
+summary(fit3)
+plot(CV$CV_tech, CV$CV_betw)
+
+fit4 = lm(data = CV, CV_betw~CV_INTRA+CV_tech)
+summary(fit4)
+plot(CV$CV_tech, CV$CV_INTRA)
+
 
 
