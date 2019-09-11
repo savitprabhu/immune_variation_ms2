@@ -1190,19 +1190,26 @@ ggplot(toplot, aes(Subset, value, fill=variable))+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))+
   theme(text = element_text(face = "bold", colour = "black"))+
   scale_y_continuous(expand = c(0,0))
+
 # this was the original plot. Reviewer wanted to modify it as follows
 
 CV = read.csv("output/TableS4.csv")
+colnames(CV)[1] = "Subset"
+
+gates$Name = gsub("_", " ", gates$Name)
+
 CV = merge(CV, gates)
-CV = CV[, c("Subset", "CV_betw" ,"CV_betw_corrected")]
+
+CV = CV[, c("Subset", "Between.individual")]
 toplot = merge(CV, toplot)
-toplot = toplot[order(toplot$CV_betw),]
+toplot = toplot[order(toplot$Between.individual),]
 toplot$Subset = factor(toplot$Subset, levels = unique(toplot$Subset))
-toplot = dcast(toplot, Subset+CV_betw+CV_betw_corrected~variable)
+toplot = dcast(toplot, Subset+Between.individual~variable)
 str(toplot)
 
 # for plot based on CV_betw (Fig 2)
 toplot2 = toplot
+colnames(toplot2)[2] = "CV_betw"
 toplot2$`Within-individual` = toplot2$CV_betw*toplot2$`Within-individual`
 toplot2$`Between-individual` = toplot2$CV_betw*toplot2$`Between-individual`
 toplot2$CV_betw_corrected = NULL
@@ -1218,7 +1225,7 @@ toplot2$Subset = factor(toplot2$Subset, levels = ORDERIWANT$Group.1)
 pdf("output/Fig2.pdf", width = 7, height = 4)
 ggplot(toplot2, aes(Subset, value, fill = variable))+
   geom_bar(stat = "identity" , width = 0.5, colour="black")+
-  labs(x=NULL, y="Total CV", 
+  labs(x=NULL, y="Total variance", 
        fill="Partition")+
   theme_bw()+
   theme(axis.text.x = element_text(angle = 90, vjust =0.5, hjust = 1))+
@@ -1226,30 +1233,6 @@ ggplot(toplot2, aes(Subset, value, fill = variable))+
   scale_y_continuous(expand = c(0,0))
 dev.off()
 
-# for plot based on CV_betw_corrected (Supplementary related to Fig 2)
-toplot3 = toplot
-toplot3$`Within-individual` = toplot3$CV_betw_corrected*toplot3$`Within-individual`
-toplot3$`Between-individual` = toplot3$CV_betw_corrected*toplot3$`Between-individual`
-toplot3$CV_betw_corrected = NULL
-toplot3$CV_betw = NULL
-toplot3 = melt(toplot3)
-str(toplot3)
-
-#ORDERIWANT = aggregate(toplot3$value, by = list(toplot3$Subset), sum)
-#ORDERIWANT = ORDERIWANT[order(ORDERIWANT$x),]
-# we will plot it in the same rank order as Fig 2 to ensure comparison.
-toplot3$Subset = factor(toplot3$Subset, levels = ORDERIWANT$Group.1)
-# reviewer wanted the plot in this fashion.
-pdf("output/Fig2_supplementary.pdf", width = 7, height = 4)
-ggplot(toplot3, aes(Subset, value, fill = variable))+
-  geom_bar(stat = "identity" , width = 0.5, colour="black")+
-  labs(x=NULL, y="Between-individual CV \n(corrected for technical CV)", 
-       fill="Partition")+
-  theme_bw()+
-  theme(axis.text.x = element_text(angle = 90, vjust =0.5, hjust = 1))+
-  theme(text = element_text(face = "bold", colour = "black"))+
-  scale_y_continuous(expand = c(0,0))
-dev.off()
 
 ########## Comparison of within- vs between- variances (hypothesis testing) ##########
 

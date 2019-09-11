@@ -29,7 +29,8 @@ p1 = ggplot(dat, aes(Subset, Rho))+
        y = "Correlation coefficient \n(mean versus variance of z-scores)")+
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))+
   scale_y_continuous(limits = c(-1, 1))+
-  theme(legend.position = c(0.8, 0.2))
+  theme(legend.position = c(0.8, 0.2))+
+  theme(text = element_text(size = 11))
 
 p1
 
@@ -47,15 +48,17 @@ sort(CV$Name)
 sort(dat$Subset)
 
 toplot = merge(CV, dat, by.x = "Name", by.y = "Subset")
-cor.test(toplot$Rho, toplot$CV_betw_corrected, method = "spearman")
+cor.test(toplot$Rho, toplot$Between.individual, method = "spearman")
 
-p2 = ggplot(toplot, aes(Rho, CV_betw_corrected))+
+p2 = ggplot(toplot, aes(Rho, Between.individual))+
   geom_point(shape = 1)+
-  annotate("text", 0, 0.75, label = "Rho = 0.6 \n p value = 0.0002")+
+  annotate("text", 0, 1.2, colour = "red", label = "Rho = 0.89 \n p value = 3.4e-08")+
   labs(x = "Correlation coefficient \n(from mean-variance plots Fig 4A)",
        y = "Between-individual CV \n (after correction for technical CV)")+
   theme_bw()+
-  coord_fixed(ratio = 1)
+  theme(text = element_text(size = 11))+
+  scale_y_log10()+
+  coord_fixed(ratio = 0.5)
 p2
 
 pdf("output/Fig4.pdf", width = 5, height = 8)
